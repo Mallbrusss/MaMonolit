@@ -8,7 +8,14 @@ import os
 
 
 # URL вашего API
-API_URL = "http://localhost:8080/api/v1/sig/getSignals"
+API_URL =  os.getenv("API_URL")
+if not API_URL:
+    st.error("Ошибка: Переменная окружения API_URL не установлена.")
+    st.stop()
+
+# API_URL = "http://localhost:8081"
+full_api_url = f"{API_URL}/api/v1/sig/getSignals"
+
 
 # Список доступных тикеров
 TICKERS = [
@@ -252,7 +259,7 @@ def fetch_data(api_url, params):
         return None
 
 # Получение данных
-data = fetch_data(API_URL, params)
+data = fetch_data(full_api_url, params)
 
 if data is not None:
     st.subheader("Анализ цен с ShortSMA и LongSMA")
@@ -266,7 +273,7 @@ if data is not None:
     if short_sma_data and long_sma_data:
         # Если TotalPrices существует, выводим его как отдельное число
         if total_prices_data is not None:
-            st.write(f"**Общая цена (TotalPrices):** {total_prices_data}")
+            st.write(f"**Общее количество цен (TotalPrices):** {total_prices_data}")
 
         # Создание DataFrame для SMA
         sma_length = max(len(short_sma_data), len(long_sma_data))
@@ -670,3 +677,77 @@ if data is not None:
         st.dataframe(hurst_wind_df)
     else:
         st.write("Нет данных для Window.HurstWind")
+
+    st.markdown("""
+    **Описание NormFdi:**
+    - `Width` показывает нормализованную ширину сигнала.
+    - `Asym` отражает степень асимметрии сигнала.
+    - `Curvature` демонстрирует нормализованную кривизну.
+    - `FDI` представляет собой интегральный показатель FDI (Fault Detection and Isolation).
+    """)
+
+        # Вывод NormFdi
+    st.subheader("NormFdi")
+
+    norm_fdi_data = data.get("NormFdi", {})
+
+    if not norm_fdi_data:
+        st.write("Нет данных для NormFdi.")
+    else:
+        try:
+            # Преобразование данных в DataFrame для таблицы
+            norm_fdi_df = pd.DataFrame([norm_fdi_data])
+
+            # Отображение таблицы данных
+            st.text("Таблица данных NormFdi:")
+            st.dataframe(norm_fdi_df.T)  # Транспонируем DataFrame для лучшего представления
+
+        except Exception as e:
+            st.write(f"Ошибка при обработке данных NormFdi: {e}")
+
+
+    # Визуализация NormFdi
+    st.subheader("NormFdi")
+
+    norm_fdi_data = data.get("Window", {}).get("NormFdi", [])
+    if norm_fdi_data:
+        # Преобразование данных в DataFrame
+        try:
+            norm_fdi_df = pd.DataFrame(norm_fdi_data)
+            
+            # Проверяем, что DataFrame содержит данные
+            if norm_fdi_df.empty:
+                st.write("Данные NormFdi пусты.")
+            else:
+                # Создание графиков для каждого параметра
+                for column in norm_fdi_df.columns:
+                    st.subheader(f"График {column}")
+
+                    fig = px.line(
+                        norm_fdi_df,
+                        x=norm_fdi_df.index,
+                        y=column,
+                        title=f"График {column}",
+                        labels={"index": "Индекс", "value": f"Значение {column}"},
+                        markers=True
+                    )
+
+                    # Настройка внешнего вида графика
+                    fig.update_layout(
+                        xaxis_title="Индекс (X)",
+                        yaxis_title=f"Значение {column} (Y)",
+                        showlegend=False,
+                        margin=dict(l=50, r=50, t=80, b=50),
+                        font=dict(family="Arial, monospace", size=12, color="#7f7f7f")
+                    )
+
+                    # Отображение графика
+                    st.plotly_chart(fig)
+
+                # Отображение таблицы данных
+                st.text("Таблица данных NormFdi:")
+                st.dataframe(norm_fdi_df)
+        except Exception as e:
+            st.write(f"Ошибка при обработке данных NormFdi: {e}")
+    else:
+        st.write("Нет данных для NormFdi")
